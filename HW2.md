@@ -229,11 +229,126 @@ WHERE
 | craptable       | 0.07           | 0.067         |
 | craptable_after | 0.05           | 0.052         |
 
+### ·        
+### 3. Based on what you created above, please normalize the table into a few new tables. Please place keys where appropriate.
+
+#### Input: temp_hochon.craptable
+
+##### Create sub tables from the craptable.
+
+#### Code:
+
+```mysql
+CREATE TABLE temp_hochon.main_table AS SELECT
+Date,
+Permno,
+ret,
+bidlo,
+askhi,
+prc,
+vol,
+retx,
+row_names,
+YEAR 
+FROM
+	temp_hochon.craptable;
+CREATE TABLE temp_hochon.annual AS SELECT DISTINCT
+gvkey,
+YEAR,
+datadate,
+annual_age_approx,
+annual_ni_at,
+annual_debt_at,
+annual_research_at,
+annual_tangibility,
+annual_tobinsq,
+annual_log_asset,
+annual_capx_at 
+FROM
+	temp_hochon.craptable;
+CREATE TABLE temp_hochon.company AS SELECT DISTINCT
+Permno,
+Cusip,
+comnam,
+hexcd,
+hsiccd,
+ticker,
+shrcd,
+ncusip,
+tsymbol 
+FROM
+	temp_hochon.craptable;
+CREATE TABLE temp_hochon.gvkey AS SELECT DISTINCT
+date,
+permno,
+gvkey 
+FROM
+	temp_hochon.craptable;
 ```
 
+
+
+### 3. III Show me that inner join statement that recovers the original table It must produce the same # of rows.
+
+#### Input: temp_hochon.main_table, temp_hochon.company, temp_hochon.gvkey, temp_hochon.annual.
+
+#### Code: 
+
+```mysql
+SELECT
+	count( * ) AS Recover_Count 
+FROM
+	temp_hochon.main_table AS a
+	INNER JOIN temp_hochon.company AS b
+	INNER JOIN temp_hochon.gvkey AS c
+	INNER JOIN temp_hochon.annual AS d ON a.permno = b.permno 
+	AND a.date = c.date 
+	AND a.permno = c.permno 
+	AND a.YEAR = d.YEAR 
+	AND c.gvkey = d.gvkey;
+SELECT
+	count( * ) AS Original_Count 
+FROM
+	temp_hochon.craptable;
 ```
 
+#### Result:
+
+| Orignal_Count | Recover_Count |
+| ------------- | ------------- |
+| 164784        | 164784        |
 
 
 
+### 3.IV Show me the table structure (SHOW CREATE TABLE) of the
+four new tables.
+
+#### Input: temp_hochon.main_table, temp_hochon.company, temp_hochon.gvkey, temp_hochon.annual.
+
+#### Code:
+
+```mysql
+SHOW CREATE TABLE temp_hochon.main_table;
+SHOW CREATE TABLE temp_hochon.company;
+SHOW CREATE TABLE temp_hochon.gvkey;
+SHOW CREATE TABLE temp_hochon.annual;
+```
+
+#### Result:
+
+| Table      | Create Table                                                 |
+| ---------- | ------------------------------------------------------------ |
+| main_table | CREATE TABLE `main_table` (<br/>  `Date` date NOT NULL,<br/>  `Permno` bigint(20) NOT NULL,<br/>  `ret` decimal(17,10) DEFAULT NULL,<br/>  `bidlo` decimal(65,10) DEFAULT NULL,<br/>  `askhi` decimal(65,10) DEFAULT NULL,<br/>  `prc` decimal(65,10) DEFAULT NULL,<br/>  `vol` decimal(42,3) DEFAULT NULL,<br/>  `retx` double DEFAULT NULL,<br/>  `row_names` text,<br/>  `year` double NOT NULL,<br/>  PRIMARY KEY (`year`,`Date`,`Permno`)<br/>) ENGINE=InnoDB DEFAULT CHARSET=latin1 |
+
+| Table   | Create Table                                                 |
+| ------- | ------------------------------------------------------------ |
+| company | CREATE TABLE `company` (<br/>  `Permno` bigint(20) NOT NULL,<br/>  `Cusip` text,<br/>  `comnam` varchar(198) DEFAULT NULL,<br/>  `hexcd` varchar(256) DEFAULT NULL,<br/>  `hsiccd` decimal(12,3) DEFAULT NULL,<br/>  `ticker` varchar(260) DEFAULT NULL,<br/>  `shrcd` decimal(51,3) DEFAULT NULL,<br/>  `ncusip` varchar(234) DEFAULT NULL,<br/>  `tsymbol` varchar(243) DEFAULT NULL,<br/>  PRIMARY KEY (`Permno`)<br/>) ENGINE=InnoDB DEFAULT CHARSET=latin1 |
+
+| Table | Create Table                                                 |
+| ----- | ------------------------------------------------------------ |
+| gvkey | CREATE TABLE `gvkey` (<br/>  `date` date NOT NULL,<br/>  `permno` bigint(20) NOT NULL,<br/>  `gvkey` bigint(20) DEFAULT NULL,<br/>  PRIMARY KEY (`date`,`permno`)<br/>) ENGINE=InnoDB DEFAULT CHARSET=latin1" |
+
+| Table  | Create Table                                                 |
+| ------ | ------------------------------------------------------------ |
+| annual | CREATE TABLE `annual` (<br/>  `gvkey` bigint(20) NOT NULL,<br/>  `year` double NOT NULL,<br/>  `datadate` text,<br/>  `annual_age_approx` decimal(41,3) DEFAULT NULL,<br/>  `annual_ni_at` decimal(41,9) DEFAULT NULL,<br/>  `annual_debt_at` decimal(43,9) DEFAULT NULL,<br/>  `annual_research_at` decimal(44,8) DEFAULT NULL,<br/>  `annual_tangibility` decimal(43,7) DEFAULT NULL,<br/>  `annual_tobinsq` decimal(42,10) DEFAULT NULL,<br/>  `annual_log_asset` decimal(41,10) DEFAULT NULL,<br/>  `annual_capx_at` decimal(14,8) DEFAULT NULL,<br/>  PRIMARY KEY (`year`,`gvkey`)<br/>) ENGINE=InnoDB DEFAULT CHARSET=latin1 |
 
