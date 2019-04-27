@@ -123,8 +123,6 @@ GROUP BY
 ### 2. Please shorten the following fields to the minimum required:** *CUSIP, PERMNO, COMNAM, TICKER, NCUSIP, RET and “annual” variables.
 #### Input: temp_hochon.craptable
 
-##### First find out the maxium of each required columns #####
-
 #### Code:
 
 ```sql
@@ -286,6 +284,12 @@ FROM
 	temp_hochon.craptable;
 ```
 
+### 3.I Please draw a schema diagram.
+
+![1556364783729](C:\Users\sherrywei\AppData\Roaming\Typora\typora-user-images\1556364783729.png)
+
+### 3.II how many space do you have
+
 
 
 ### 3. III Show me that inner join statement that recovers the original table It must produce the same # of rows.
@@ -351,4 +355,81 @@ SHOW CREATE TABLE temp_hochon.annual;
 | Table  | Create Table                                                 |
 | ------ | ------------------------------------------------------------ |
 | annual | CREATE TABLE `annual` (<br/>  `gvkey` bigint(20) NOT NULL,<br/>  `year` double NOT NULL,<br/>  `datadate` text,<br/>  `annual_age_approx` decimal(41,3) DEFAULT NULL,<br/>  `annual_ni_at` decimal(41,9) DEFAULT NULL,<br/>  `annual_debt_at` decimal(43,9) DEFAULT NULL,<br/>  `annual_research_at` decimal(44,8) DEFAULT NULL,<br/>  `annual_tangibility` decimal(43,7) DEFAULT NULL,<br/>  `annual_tobinsq` decimal(42,10) DEFAULT NULL,<br/>  `annual_log_asset` decimal(41,10) DEFAULT NULL,<br/>  `annual_capx_at` decimal(14,8) DEFAULT NULL,<br/>  PRIMARY KEY (`year`,`gvkey`)<br/>) ENGINE=InnoDB DEFAULT CHARSET=latin1 |
+
+### 4. Create a copy of crsp.dsf in a SQLite, MonetDBLite, or Apache Drill database
+
+o   This is a really, really big table
+
+o   You are well-advised to do a streaming read or to write a loop that iterates on crsp.dsf by date or permno
+
+o   At the end, verify you have the same number of observations, unique dates, unique firms, and (roughly) sum(round(ret,5))
+
+#### input: crsp.dsf
+
+#### code:
+
+```python
+import numpy as np
+import MySQLdb as mdb
+import pandas as pd
+
+conn= mdb.connect(
+        host='178.128.52.12',
+        port = 3306,
+        user='u3554218',
+        passwd='3035542186',
+        db ='crsp',
+        )
+
+cur = conn.cursor()
+
+cur.execute('explain crsp.dsf')
+columns = pd.DataFrame(np.array(cur.fetchall()))[0].tolist()
+
+cur.execute('select distinct permno from crsp.dsf')
+permnos = cur.fetchall()
+
+cur.execute('SELECT * from crsp.dsf where permno = ' + str(list(permnos[0])[0]))
+results = np.array(cur.fetchall())
+
+from tqdm import tqdm
+
+for permno in tqdm(permnos[1:10]):
+    try:
+        cur.execute('SELECT * from crsp.dsf where permno = ' + str(list(permno)[0]))
+        result = np.array(cur.fetchall())
+        results = np.concatenate((results,result),axis = 0)
+    except:
+        print(permno)
+        
+dsf_copy = pd.DataFrame(results,columns = columns)
+
+dsf_copy.head(5)
+```
+
+#### output：
+
+| date_sas | cusip |   permno | permco | issuno | hexcd | hsiccd | bidlo |        askhi |          prc |           ... |  ret |           bid |  ask | shrout | cfacpr |  cfacshr |  openprc | numtrd | retx |          date |            |
+| -------: | ----: | -------: | -----: | -----: | ----: | -----: | ----: | -----------: | -----------: | ------------: | ---: | ------------: | ---: | -----: | -----: | -------: | -------: | -----: | ---: | ------------: | ---------- |
+|        0 |  9503 | 68391610 |  10000 |   7952 | 10396 |      3 |  3990 | 2.3750000000 | 2.7500000000 | -2.5625000000 |  ... |          None | None |   None |   3680 | 1.000000 | 1.000000 |   None | None |          None | 1986-01-07 |
+|        1 |  9504 | 68391610 |  10000 |   7952 | 10396 |      3 |  3990 | 2.3750000000 | 2.6250000000 | -2.5000000000 |  ... | -0.0243902430 | None |   None |   3680 | 1.000000 | 1.000000 |   None | None | -0.0243902430 | 1986-01-08 |
+|        2 |  9505 | 68391610 |  10000 |   7952 | 10396 |      3 |  3990 | 2.3750000000 | 2.6250000000 | -2.5000000000 |  ... |         0E-10 | None |   None |   3680 | 1.000000 | 1.000000 |   None | None |         0E-10 | 1986-01-09 |
+|        3 |  9506 | 68391610 |  10000 |   7952 | 10396 |      3 |  3990 | 2.3750000000 | 2.6250000000 | -2.5000000000 |  ... |         0E-10 | None |   None |   3680 | 1.000000 | 1.000000 |   None | None |         0E-10 | 1986-01-10 |
+|        4 |  9509 | 68391610 |  10000 |   7952 | 10396 |      3 |  3990 | 2.5000000000 | 2.7500000000 | -2.6250000000 |  ... |  0.0500000007 | None |   None |   3680 | 1.000000 | 1.000000 |   None | None |  0.0500000007 | 1986-01-13 |
+|        5 |  9510 | 68391610 |  10000 |   7952 | 10396 |      3 |  3990 | 2.6250000000 | 2.8750000000 | -2.7500000000 |  ... |  0.0476190485 | None |   None |   3680 | 1.000000 |          |        |      |               |            |
+
+```python
+df_ret = dsf_copy[['ret']].dropna()
+df_ret['ret'] = df_ret.astype(float)
+round(df_ret,5).sum()
+```
+
+#### output : 27.144171
+
+```python
+import sqlite3
+con = sqlite3.connect('example.db')
+from pandas.io import sql
+dsf_copy.to_sql(con = con, name = 'dsf_copy')
+```
 
