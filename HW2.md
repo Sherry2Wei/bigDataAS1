@@ -324,9 +324,7 @@ FROM
 
 
 
-### 3.IV Show me the table structure (SHOW CREATE TABLE) of the
-four new tables.
-
+### 3.IV Show me the table structure (SHOW CREATE TABLE) of the four new tables.
 #### Input: temp_hochon.main_table, temp_hochon.company, temp_hochon.gvkey, temp_hochon.annual.
 
 #### Code:
@@ -355,6 +353,22 @@ SHOW CREATE TABLE temp_hochon.annual;
 | Table  | Create Table                                                 |
 | ------ | ------------------------------------------------------------ |
 | annual | CREATE TABLE `annual` (<br/>  `gvkey` bigint(20) NOT NULL,<br/>  `year` double NOT NULL,<br/>  `datadate` text,<br/>  `annual_age_approx` decimal(41,3) DEFAULT NULL,<br/>  `annual_ni_at` decimal(41,9) DEFAULT NULL,<br/>  `annual_debt_at` decimal(43,9) DEFAULT NULL,<br/>  `annual_research_at` decimal(44,8) DEFAULT NULL,<br/>  `annual_tangibility` decimal(43,7) DEFAULT NULL,<br/>  `annual_tobinsq` decimal(42,10) DEFAULT NULL,<br/>  `annual_log_asset` decimal(41,10) DEFAULT NULL,<br/>  `annual_capx_at` decimal(14,8) DEFAULT NULL,<br/>  PRIMARY KEY (`year`,`gvkey`)<br/>) ENGINE=InnoDB DEFAULT CHARSET=latin1 |
+
+#### 3. VI  Overall, what is the tradeoff from normalization?
+
+Although normalization can save a lot of space, there are several disadvantages. 
+According to article “NORMALIZATION IN DBMS: ANOMALIES, ADVANTAGES, DISADVANTAGES”
+There are 5 major disadvantages
+1) More tables to join as by spreading out data into more tables, the need to join table’s increases and the task becomes more tedious. The database becomes harder to realize as well.
+
+2) Tables will contain codes rather than real data as the repeated data will be stored as lines of codes rather than the true data. Therefore, there is always a need to go to the lookup table.
+
+3) Data model becomes extremely difficult to query against as the data model is optimized for applications, not for ad hoc querying. (Ad hoc query is a query that cannot be determined before the issuance of the query. It consists of an SQL that is constructed dynamically and is usually constructed by desktop friendly query tools.). Hence it is hard to model the database without knowing what the customer desires.
+
+4) As the normal form type progresses, the performance becomes slower and slower.
+
+5) Proper knowledge is required on the various normal forms to execute the normalization process efficiently. Careless use may lead to terrible design filled with major anomalies and data inconsistency.
+For our point of view, problem 1 and 5 affect us the most.
 
 ### 4. Create a copy of crsp.dsf in a SQLite, MonetDBLite, or Apache Drill database
 
@@ -427,9 +441,22 @@ round(df_ret,5).sum()
 #### output : 27.144171
 
 ```python
+dsf_copy['date_sas'] = pd.to_datetime(dsf_copy.date_sas)
+dsf_copy['date'] = pd.to_datetime(dsf_copy.date)
+for column in dsf_copy.columns[1:-1]:
+    dsf_copy[str(column)] = dsf_copy[str(column)].astype(str)
+
 import sqlite3
-con = sqlite3.connect('example.db')
-from pandas.io import sql
-dsf_copy.to_sql(con = con, name = 'dsf_copy')
+
+con = sqlite3.connect('AS2.db')
+
+def DataFrameToSQLite3(aDF,aTableName,aDB):
+    con = sqlite3.connect(aDB)
+    aDF.to_sql(name = aTableName,con = con, if_exists = 'append',index = None)
+    con.commit()
+    con.close()
+    
+
+DataFrameToSQLite3(dsf_copy,'dsf_copy','AS2.db')
 ```
 
