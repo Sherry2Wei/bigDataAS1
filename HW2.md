@@ -286,9 +286,34 @@ FROM
 
 ### 3.I Please draw a schema diagram.
 
-![1556364783729](C:\Users\sherrywei\AppData\Roaming\Typora\typora-user-images\1556364783729.png)
+![1251304792](C:\Users\ChonWai\Desktop\big_data\hw2\1251304792.jpg)
 
 ### 3.II how many space do you have
+
+#### Input: information_schema.tables
+
+#### Code:
+
+```mysql
+SELECT
+	table_name AS Table_Name,
+	round( data_length / power( 1024, 3 ), 2 ) AS Data_Length_GB,
+	round( ( data_length + index_length ) / power( 1024, 3 ), 3 ) AS Table_Size_GB 
+FROM
+	information_schema.TABLES 
+WHERE
+	table_schema = "temp_hochon" 
+	AND table_name IN ( "main_table", "gvkey", "company", "annual" );
+```
+
+#### Output:
+
+| Table_Name | Data_Length_GB | Table_Size_GB |
+| ---------- | -------------- | ------------- |
+| annual     | 0              | 0.003         |
+| company    | 0              | 0.001         |
+| gvkey      | 0.01           | 0.007         |
+| main_table | 0.03           | 0.033         |
 
 
 
@@ -383,42 +408,54 @@ o   At the end, verify you have the same number of observations, unique dates, u
 #### code:
 
 ```python
-import numpy as np
-import MySQLdb as mdb
+import time
+import mysql.connector as msc
 import pandas as pd
+import os
+from multiprocessing import Pool
+os.chdir(r"c:\Users\ChonWai\Desktop\big_data")
 
-conn= mdb.connect(
+
+def querypermno(permno):
+    con = msc.connect(
         host='178.128.52.12',
-        port = 3306,
-        user='u3554218',
-        passwd='3035542186',
-        db ='crsp',
-        )
+        port=3306,
+        user='hochon',
+        passwd='3035543025',
+        db='crsp',
+    )
+    curs = con.cursor()
+    curs.execute("select * from crsp.dsf " +
+                 "where permno = " + str(permno))
+    result = curs.fetchall()
+    return result
 
-cur = conn.cursor()
 
-cur.execute('explain crsp.dsf')
-columns = pd.DataFrame(np.array(cur.fetchall()))[0].tolist()
-
-cur.execute('select distinct permno from crsp.dsf')
-permnos = cur.fetchall()
-
-cur.execute('SELECT * from crsp.dsf where permno = ' + str(list(permnos[0])[0]))
-results = np.array(cur.fetchall())
-
-from tqdm import tqdm
-
-for permno in tqdm(permnos[1:10]):
-    try:
-        cur.execute('SELECT * from crsp.dsf where permno = ' + str(list(permno)[0]))
-        result = np.array(cur.fetchall())
-        results = np.concatenate((results,result),axis = 0)
-    except:
-        print(permno)
-        
-dsf_copy = pd.DataFrame(results,columns = columns)
-
-dsf_copy.head(5)
+if __name__ == '__main__':
+    start_time = time.time()
+    results = []
+    conn = msc.connect(
+        host='178.128.52.12',
+        port=3306,
+        user='hochon',
+        passwd='3035543025',
+        db='crsp',
+    )
+    cur = conn.cursor()
+    cur.execute("select distinct permno from crsp.dsf")
+    permnos = [i[0] for i in cur.fetchall()]
+    cur.execute("explain crsp.dsf")
+    column = [i[0] for i in cur.fetchall()]
+    p = Pool(processes=7)
+    data = p.map(querypermno, permnos)
+    print("done")
+    for permno_list in data:
+        for row in permno_list:
+            results.append(row)
+    dsf_copy = pd.DataFrame(results, columns=column)
+    dsf_copy.to_csv("bigdata_question4.csv", index=False)
+    print(dsf_copy.head(5))
+    print("--- %s seconds ---" % (time.time() - start_time))
 ```
 
 #### output：
